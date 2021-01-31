@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "strict": true,
+    "target": "ES6",
+    "allowJs": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "sourceMap": true,
+    "module": "CommonJS",
+    "lib": [
+      "ES6",
+      "DOM"
+    ],
+    "removeComments": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
