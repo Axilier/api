@@ -82,12 +82,13 @@ passport.deserializeUser((id: string, cb) => {
 //ROUTES -- LOCAL
 app.post('/register', async (req, res) => {
     const {email, password} = req?.body
-    const hashedPass = await bcrypt.hash(password, 10)
 
     if (!email || !password || typeof email !== "string" || typeof password !== "string") {
         res.send("Bad body values")
         return;
     }
+
+    const hashedPass = await bcrypt.hash(password, 10)
 
     await connection.query('SELECT email_id FROM `email` WHERE `email` = ?', [email], ((err, results) => {
         if (err) {
