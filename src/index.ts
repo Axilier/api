@@ -12,8 +12,8 @@ import {User} from "./Types";
 dotenv.config()
 const localStrategy = passportLocal.Strategy
 const connection = mysql.createConnection({
-    host: "localhost",
-    user: "root",
+    host: "database-1.c2slcu7wdo56.eu-west-2.rds.amazonaws.com",
+    user: "admin",
     password: process.env.DB_PASSWORD,
     database: "Axilier"
 })
@@ -134,6 +134,6 @@ app.post('/logout', ((req, res) => {
     res.send(200)
 }))
 
-app.listen(4000, () => {
+app.listen(3000, () => {
     console.log("Server Started")
 })

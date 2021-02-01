@@ -3,3 +3,4 @@ apps:
     script: ./dist/index.js
     exec_mode: cluster
     instances: max
+    node_args : '-r dotenv/config'
