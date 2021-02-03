@@ -30,4 +30,6 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: true
-          tags: kieranlewin/axilier-api:${{env.RELEASE_VERSION}}
+          tags: |
+            kieranlewin/axilier-api:${{env.RELEASE_VERSION}}
+            kieranlewin/axilier-api:latest
