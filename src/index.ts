@@ -28,7 +28,7 @@ connection.connect((err: MysqlError) => {
 const app = express();
 app.use(express.json());
 app.use(cors({
-    origin: environment === 'development'? "http://localhost:3000" : process.env.ORIGIN, 
+    origin: environment === 'development'? "http://localhost:3000" : process.env.ORIGIN,
     credentials: true,
     optionsSuccessStatus: 200,
 }));
@@ -83,7 +83,6 @@ passport.deserializeUser((id: string, cb) => {
         AND user.main_acc_id = account.account_id
         AND account.email_id = email.email_id
     `, [id], (err, results) => {
-        console.log(results[0])
         cb(err, results[0])
     })
 });
