@@ -28,7 +28,7 @@ connection.connect((err: MysqlError) => {
 const app = express();
 app.use(express.json());
 app.use(cors({
-    origin: environment === 'development'? "http://localhost:3000" : process.env.ORIGIN,
+    origin: "https://axilier.com", // environment === 'development'? "http://localhost:3000" : process.env.ORIGIN,
     credentials: true,
     optionsSuccessStatus: 200,
 }));
@@ -78,10 +78,12 @@ passport.serializeUser((user: any, done) => {
 passport.deserializeUser((id: string, cb) => {
     connection.query(`
         SELECT user.*, email.email
-        FROM user,account,email
+        FROM user,
+             account,
+             email
         WHERE user.user_id = 2
-        AND user.main_acc_id = account.account_id
-        AND account.email_id = email.email_id
+          AND user.main_acc_id = account.account_id
+          AND account.email_id = email.email_id
     `, [id], (err, results) => {
         cb(err, results[0])
     })
@@ -139,7 +141,7 @@ app.post('/login', passport.authenticate("local"), (req, res) => {
     res.send(200)
 })
 
-app.get('/getUser', (req,res) => {
+app.get('/getUser', (req, res) => {
     console.log(req.user)
     res.send(req.user)
 })
