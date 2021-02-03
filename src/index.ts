@@ -9,6 +9,8 @@ import bcrypt from "bcrypt"
 import passportLocal from 'passport-local'
 import {User} from "./Types";
 
+const environment = process.env.NODE_ENV || 'development'
+
 dotenv.config()
 const localStrategy = passportLocal.Strategy
 const connection = mysql.createConnection({
@@ -25,15 +27,19 @@ connection.connect((err: MysqlError) => {
 
 const app = express();
 app.use(express.json());
-app.use(cors({origin: process.env.ORIGIN, credentials: true}));
+app.use(cors({
+    origin: environment === 'development'? "http://localhost:3000" : process.env.ORIGIN, 
+    credentials: true,
+    optionsSuccessStatus: 200,
+}));
 app.use(session({
     name: "Axilier-sessionId",
     secret: process.env.SECRET || "secret",
     resave: true,
     saveUninitialized: true,
-    cookie: {
-        secure: true
-    }
+    // cookie: {
+    //     secure: true
+    // }
 }))
 app.use(cookieParser());
 app.use(passport.initialize());
@@ -71,10 +77,13 @@ passport.serializeUser((user: any, done) => {
 
 passport.deserializeUser((id: string, cb) => {
     connection.query(`
-        SELECT *
-        FROM user
-        WHERE user_id = ?
+        SELECT user.*, email.email
+        FROM user,account,email
+        WHERE user.user_id = 2
+        AND user.main_acc_id = account.account_id
+        AND account.email_id = email.email_id
     `, [id], (err, results) => {
+        console.log(results[0])
         cb(err, results[0])
     })
 });
@@ -130,11 +139,17 @@ app.post('/register', async (req, res) => {
 app.post('/login', passport.authenticate("local"), (req, res) => {
     res.send(200)
 })
-app.post('/logout', ((req, res) => {
+
+app.get('/getUser', (req,res) => {
+    console.log(req.user)
+    res.send(req.user)
+})
+
+app.get('/logout', ((req, res) => {
     req.logout();
     res.send(200)
 }))
 
-app.listen(3000, () => {
+app.listen(4000, () => {
     console.log("Server Started")
 })
