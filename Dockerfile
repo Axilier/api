@@ -1,4 +1,4 @@
-ARG PORT=3000
+ARG PORT=4000
 FROM node:14-alpine AS node
 
 FROM node AS builder
@@ -19,5 +19,5 @@ COPY package.json process.yml .env ./
 USER node
 RUN yarn install --production
 COPY --chown=node:node --from=builder /app/dist ./dist
-EXPOSE 3000
+EXPOSE 4000
 ENTRYPOINT ["pm2-runtime", "./process.yml"]
