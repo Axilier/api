@@ -1,63 +1,47 @@
 /** @format */
 import cors from 'cors';
-// import Aws from "./Aws";
-import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
 import express from 'express';
-import winston, { Logger } from 'winston';
+import winston from 'winston';
+import expressWinston from 'express-winston';
 import passport from 'passport';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
-import passportLocal from 'passport-local';
-import { Auth, google } from 'googleapis';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import { Strategy as GoogleStrategy, VerifyCallback } from 'passport-google-oauth20';
 import bodyParser from 'body-parser';
-import MySqlController from './MySqlController';
-import { getNeatDate } from './Utils';
+import { Strategy as LocalStrategy } from 'passport-local';
+import { VerifyCallback } from 'passport-google-oauth20';
+import AccountRouter from './Routes/AccountRouter';
 import { Done, Google, Local, UserResponse } from './Types';
-import Aws from './Aws';
+import { getNeatDate } from './Utils';
+import MySqlController from './MySqlController';
 
 const environment = process.env.NODE_ENV || 'development';
-let googleAuth: Auth.OAuth2Client;
+// let googleAuth: Auth.OAuth2Client;
 dotenv.config();
-const LocalStrategy = passportLocal.Strategy;
 const consoleTransport = new winston.transports.Console();
-const logger = winston.createLogger({
-    transports: [
-        new DailyRotateFile({
-            filename: './logs/api-%DATE%.txt',
-            datePattern: 'DD_MM_YYYY HH_mm_ss',
-            zippedArchive: true,
-            maxSize: '500m',
-            maxFiles: '14d',
-            json: true,
-            level: 'silly',
-        }),
-        consoleTransport,
-    ],
-});
 
-if (environment !== 'development') {
-    logger.remove(consoleTransport);
-}
+// if (environment !== 'development') {
+//     logger.remove(consoleTransport);
+// }
 
 const app = express();
 const clientUrl = environment === 'development' ? 'http://localhost:3000' : process.env.ORIGIN;
-const aws = new Aws(logger);
-const mysqlController = new MySqlController(logger);
+// const aws = new Aws(logger);
+const mysqlController = new MySqlController();
 
-function googleInit(refreshToken: string): Auth.OAuth2Client {
-    const oauth2Client = new google.auth.OAuth2({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    });
-    oauth2Client.setCredentials({
-        refresh_token: refreshToken,
-    });
-    return oauth2Client;
-}
-
+// function googleInit(refreshToken: string): Auth.OAuth2Client {
+//     const oauth2Client = new google.auth.OAuth2({
+//         clientId: process.env.GOOGLE_CLIENT_ID,
+//         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+//     });
+//     oauth2Client.setCredentials({
+//         refresh_token: refreshToken,
+//     });
+//     return oauth2Client;
+// }
+//
 function DbResponseToUser(response: (Local | Google) & UserResponse): UserResponse {
     return {
         user_id: response.user_id,
@@ -82,6 +66,41 @@ function somethingWentWrong(
 }
 
 // region -- API SETUP --
+app.use(
+    expressWinston.logger({
+        transports: [
+            new DailyRotateFile({
+                filename: './logs/api-%DATE%.txt',
+                datePattern: 'DD_MM_YYYY HH_mm_ss',
+                zippedArchive: true,
+                maxSize: '500m',
+                maxFiles: '14d',
+                json: true,
+                level: 'silly',
+            }),
+            consoleTransport,
+        ],
+        colorize: true,
+    }),
+);
+app.use('/account', AccountRouter);
+app.use(
+    expressWinston.errorLogger({
+        transports: [
+            new DailyRotateFile({
+                filename: './logs/api-%DATE%.txt',
+                datePattern: 'DD_MM_YYYY HH_mm_ss',
+                zippedArchive: true,
+                maxSize: '500m',
+                maxFiles: '14d',
+                json: true,
+                level: 'silly',
+            }),
+            consoleTransport,
+        ],
+    }),
+);
+
 app.use(express.json());
 app.use(
     cors({
@@ -107,84 +126,81 @@ app.use(passport.initialize());
 app.use(passport.session());
 // endregion
 // region -- PASSPORT --
-// region -- Local Strategy
+// region -- Local Strategy --
 passport.use(
     new LocalStrategy(
         { usernameField: 'email' },
         async (email, password, done: VerifyCallback): Promise<void> => {
-            try {
-                const user = await mysqlController.getLocalUser(email);
-                if (user.length === 0)
-                    return done(undefined, undefined, { message: 'No result found' });
-                if (user.length > 1) {
-                    const logInfo = `${email}:multiple_results_local:${getNeatDate()}`;
-                    logger.error(logInfo);
-                    return somethingWentWrong(logInfo, done);
-                }
-                const passwordMatches = await bcrypt
-                    .compare(password, user[0].password.toString())
-                    .catch(err => {
-                        const log = `${user[0].user_id}:checkUserPass:${getNeatDate()}`;
-                        logger.error(`name:${log} \n ${err.message}`);
-                        return somethingWentWrong(log, done);
-                    });
-                if (passwordMatches) {
-                    return done(undefined, DbResponseToUser(user[0]));
-                }
-                return done(undefined, undefined);
-            } catch (err) {
-                return somethingWentWrong(err.message, done);
+            const user = await mysqlController.getLocalUser(email);
+            if (user.length === 0)
+                return done(undefined, undefined, { message: 'No result found' });
+            if (user.length > 1) {
+                const logInfo = `${email}:multiple_results_local:${getNeatDate()}`;
+                somethingWentWrong(logInfo, done);
+                throw new Error(logInfo);
             }
+            const passwordMatches = await bcrypt
+                .compare(password, user[0].password.toString())
+                .catch(err => {
+                    const log = `${user[0].user_id}:checkUserPass:${getNeatDate()}`;
+                    somethingWentWrong(log, done);
+                    throw new Error(`name:${log} \n ${err.message}`);
+                });
+            if (passwordMatches) {
+                return done(undefined, DbResponseToUser(user[0]));
+            }
+            return done(undefined, undefined);
         },
     ),
 );
 // endregion
 passport.serializeUser((user: Express.User, done) => done(null, user.user_id));
-passport.deserializeUser(
-    async (id: number, done: VerifyCallback): Promise<void> => {
-        try {
-            const user = await mysqlController.getUserById(id);
-            if (user.length === 0)
-                return done(undefined, undefined, { message: 'No result found' });
-            if (user.length > 1) {
-                const logInfo = `${id}:multiple_results_deserialize_user:${getNeatDate()}`;
-                logger.error(logInfo);
-                return somethingWentWrong(logInfo, done);
-            }
-            const googleUser =
-                user[0].google_acc_id !== null
-                    ? await mysqlController.getGoogleUser(user[0].user_id)
-                    : [];
-            if (googleUser.length > 1) {
-                const logInfo = `${
-                    user[0].google_acc_id
-                }:multiple_results_deserialize_user_google:${getNeatDate()}`;
-                logger.error(logInfo);
-                return somethingWentWrong(logInfo, done);
-            }
-            if (googleUser[0] && googleUser[0].refresh_token) {
-                googleAuth = googleInit(googleUser[0].refresh_token);
-            }
-            if (googleUser.length === 1) return done(undefined, DbResponseToUser(googleUser[0]));
-            if (user[0].local_acc_id !== null) {
-                const localUser = await mysqlController.getLocalUser(user[0].user_id);
-                if (localUser.length !== 1) {
-                    const logInfo = `${
-                        user[0].local_acc_id
-                    }:multiple_results_deserialize_user_local:${getNeatDate()}`;
-                    logger.error(logInfo);
-                    return somethingWentWrong(logInfo, done);
-                }
-                return done(undefined, DbResponseToUser(localUser[0]));
-            }
-            return done(undefined, undefined, { message: 'No Account associated with user' });
-        } catch (err) {
-            const logInfo = `${id}:deserialize:${getNeatDate()} \n Error: ${err}`;
-            logger.error(logInfo);
-            return somethingWentWrong(err.message, done);
-        }
-    },
-);
+// passport.deserializeUser(
+//     async (id: number, done: VerifyCallback): Promise<void> => {
+//         try {
+//             const user = await mysqlController.getUserById(id);
+//             if (user.length === 0)
+//                 return done(undefined, undefined, { message: 'No result found' });
+//             if (user.length > 1) {
+//                 const logInfo = `${id}:multiple_results_deserialize_user:${getNeatDate()}`;
+//                 logger.error(logInfo);
+//                 return somethingWentWrong(logInfo, done);
+//             }
+//             const googleUser =
+//                 user[0].google_acc_id !== null
+//                     ? await mysqlController.getGoogleUser(user[0].user_id)
+//                     : [];
+//             if (googleUser.length > 1) {
+//                 const logInfo = `${
+//                     user[0].google_acc_id
+//                 }:multiple_results_deserialize_user_google:${getNeatDate()}`;
+//                 logger.error(logInfo);
+//                 return somethingWentWrong(logInfo, done);
+//             }
+//             if (googleUser[0] && googleUser[0].refresh_token) {
+//                 googleAuth = googleInit(googleUser[0].refresh_token);
+//             }
+//             if (googleUser.length === 1) return done(undefined, DbResponseToUser(googleUser[0]));
+//             if (user[0].local_acc_id !== null) {
+//                 const localUser = await mysqlController.getLocalUser(user[0].user_id);
+//                 if (localUser.length !== 1) {
+//                     const logInfo = `${
+//                         user[0].local_acc_id
+//                     }:multiple_results_deserialize_user_local:${getNeatDate()}`;
+//                     logger.error(logInfo);
+//                     return somethingWentWrong(logInfo, done);
+//                 }
+//                 return done(undefined, DbResponseToUser(localUser[0]));
+//             }
+//             return done(undefined, undefined, { message: 'No Account associated with user' });
+//         } catch (err) {
+//             const logInfo = `${id}:deserialize:${getNeatDate()} \n Error: ${err}`;
+//             logger.error(logInfo);
+//             return somethingWentWrong(err.message, done);
+//         }
+//     },
+// );
+
 // region Google Strategy
 const googleStrategy = new GoogleStrategy(
     {
@@ -339,6 +355,7 @@ passport.use(googleStrategy);
 
 // endregion
 // endregion
+
 // region -- API --
 // region -- ACCOUNT --
 app.get('/getLocalAccount', async (req, res) => {
@@ -432,206 +449,205 @@ app.post(
 app.post('/auth/local/login', passport.authenticate('local'), (req, res) => {
     res.sendStatus(200);
 });
+// endregion
+// // region ROUTES -- AUTH -- GOOGLE
+// // region google auth
+// app.get('/auth/google', (req, res, next) =>
+//     passport.authenticate('google', {
+//         state: JSON.stringify({ type: req.query.type || 'login' }),
+//         scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.file'],
+//         accessType: 'offline',
+//         prompt: 'consent',
+//     })(req, res, next),
+// );
 // // endregion
-// region ROUTES -- AUTH -- GOOGLE
-// region google auth
-app.get('/auth/google', (req, res, next) =>
-    passport.authenticate('google', {
-        state: JSON.stringify({ type: req.query.type || 'login' }),
-        scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.file'],
-        accessType: 'offline',
-        prompt: 'consent',
-    })(req, res, next),
-);
-// endregion
-app.get('/auth/google/callback', (req, res, next) => {
-    passport.authenticate('google', (err, user, responseInfo): void => {
-        const { info, message } = responseInfo || { info: '', message: '' };
-        const type = info.type === 'connect' ? 'account' : info.type || 'login';
-        if (!user) {
-            if (message) {
-                const error = message !== '401.Google' ? '401' : '401.Google';
-                res.redirect(`${clientUrl}/${type}?err=${error}`);
-                return next();
-            }
-            res.redirect(`${clientUrl}/${type}`);
-            return next();
-        }
-        req.login(user, loginErr => {
-            if (loginErr) {
-                return next(loginErr);
-            }
-            return res.redirect(`${clientUrl}/account`);
-        });
-        return next();
-    })(req, res, next);
-});
-// app.get('/auth/google/refresh', (req, res) => {
-//     const user = req.user as User | undefined
-//     if (!user || !user.refreshToken) {
-//         res.send(401)
-//     } else {
-//         refresh.requestNewAccessToken('google', user.refreshToken, (err, accessToken) => {
-//             if (err) {
-//                 return res.send(err)
+// app.get('/auth/google/callback', (req, res, next) => {
+//     passport.authenticate('google', (err, user, responseInfo): void => {
+//         const { info, message } = responseInfo || { info: '', message: '' };
+//         const type = info.type === 'connect' ? 'account' : info.type || 'login';
+//         if (!user) {
+//             if (message) {
+//                 const error = message !== '401.Google' ? '401' : '401.Google';
+//                 res.redirect(`${clientUrl}/${type}?err=${error}`);
+//                 return next();
 //             }
-//             req.user = {
-//                 ...req.user,
-//                 accessToken
+//             res.redirect(`${clientUrl}/${type}`);
+//             return next();
+//         }
+//         req.login(user, loginErr => {
+//             if (loginErr) {
+//                 return next(loginErr);
 //             }
-//             return res.send(req.user)
-//         })
+//             return res.redirect(`${clientUrl}/account`);
+//         });
+//         return next();
+//     })(req, res, next);
+// });
+// // app.get('/auth/google/refresh', (req, res) => {
+// //     const user = req.user as User | undefined
+// //     if (!user || !user.refreshToken) {
+// //         res.send(401)
+// //     } else {
+// //         refresh.requestNewAccessToken('google', user.refreshToken, (err, accessToken) => {
+// //             if (err) {
+// //                 return res.send(err)
+// //             }
+// //             req.user = {
+// //                 ...req.user,
+// //                 accessToken
+// //             }
+// //             return res.send(req.user)
+// //         })
+// //     }
+// // })
+// app.get('/auth/google/access_token', (req, res) => {
+//     googleAuth.getAccessToken().then(token => {
+//         if (token) {
+//             res.send(token);
+//         } else {
+//             res.send('Error: no token found');
+//         }
+//     });
+// });
+// // endregion
+// // region ROUTES -- AUTH -- GENERAL
+// app.get('/auth/logout', (req, res) => {
+//     req.logOut();
+//     res.sendStatus(200);
+// });
+// // endregion
+// // endregion
+// // region -- FILE OPERATIONS --
+// // region ROUTES -- AWS
+// app.get('/aws/list_files', async (req, res) => {
+//     if (!req.user) {
+//         res.send(401);
+//         return;
 //     }
-// })
-app.get('/auth/google/access_token', (req, res) => {
-    googleAuth.getAccessToken().then(token => {
-        if (token) {
-            res.send(token);
-        } else {
-            res.send('Error: no token found');
-        }
-    });
-});
-// endregion
-// region ROUTES -- AUTH -- GENERAL
-app.get('/auth/logout', (req, res) => {
-    req.logOut();
-    res.sendStatus(200);
-});
-// endregion
-// endregion
-// region -- FILE OPERATIONS --
-// region ROUTES -- AWS
-app.get('/aws/list_files', async (req, res) => {
-    if (!req.user) {
-        res.send(401);
-        return;
-    }
-    const { user_id, date_joined } = req.user;
-    try {
-        const listResponse = aws.s3.getObject({
-            Bucket: 'axilier-maps',
-            Key: `${user_id}-${date_joined}`,
-        });
-        res.send({ content: listResponse, error: false });
-    } catch (err) {
-        const logInfo = `${
-            req.user?.user_id || 'user_id'
-        }:aws_list_files:${getNeatDate()} \n Error: ${err}`;
-        logger.error(logInfo);
-        res.send({ message: 'Something went wrong', error: true });
-    }
-});
-app.post('/aws/upload_file', (req, res) => {
-    if (!req.user) return res.send(401);
-    const { user_id, date_joined } = req.user;
-    if (
-        !req.body.name ||
-        !req.body.file ||
-        typeof req.body.name !== 'string' ||
-        typeof req.body.file !== 'string'
-    )
-        return res.send('Bad Values');
-    const response = aws.uploadFile(`${user_id}-${date_joined}/${req.body.name}`, req.body.file);
-    return res.send({ message: response, error: response === 'Upload failed' });
-});
-app.post('/aws/update_file', async (req, res) => {
-    if (!req.user) return res.send(401);
-    const { user_id, date_joined } = req.user;
-    if (
-        !req.body.name ||
-        !req.body.file ||
-        typeof req.body.name !== 'string' ||
-        typeof req.body.file !== 'string'
-    )
-        return res.send('Bad Values');
-    const updateResponse = await aws.updateFile(
-        `${user_id}-${date_joined}/${req.body.name}`,
-        req.body.file,
-    );
-    return res.send(updateResponse === true ? 200 : { message: updateResponse, error: true });
-});
-app.get('/aws/delete_file', async (req, res) => {
-    if (!req.user) return res.send(401);
-    const { user_id, date_joined } = req.user;
-    if (!req.body.name || typeof req.body.name !== 'string') return res.send('Bad Values');
-    const deleteResponse = await aws.deleteFile(`${user_id}-${date_joined}/${req.body.name}`);
-    return res.send(deleteResponse === true ? 200 : { message: deleteResponse, error: true });
-});
-// endregion
-// region ROUTES -- GOOGLE
-app.get('/google/list_files', async (req, res) => {
-    try {
-        const files = await google
-            .drive({
-                version: 'v3',
-                auth: googleAuth,
-            })
-            .files.list({
-                pageSize: 10,
-                fields:
-                    'nextPageToken, files(id, name, trashed, createdTime, modifiedTime, owners)',
-            });
-        res.send({ content: files, error: false });
-    } catch (err) {
-        const logInfo = `${
-            req.user?.user_id || 'user_id'
-        }:google_list_files:${getNeatDate()} \n Error: ${err}`;
-        logger.error(logInfo);
-        res.send({ message: 'Something went wrong', error: true });
-    }
-});
-app.get('/google/get_user_profile_pic', async (req, res) => {
-    try {
-        const user = await google
-            .people({
-                version: 'v1',
-                auth: googleAuth,
-            })
-            .people.get({ resourceName: 'people/me', personFields: 'photos' });
-        res.send({ content: user, error: false });
-    } catch (err) {
-        const logInfo = `${
-            req.user?.user_id || 'user_id'
-        }:google_user_profile_pic:${getNeatDate()} \n Error: ${err}`;
-        logger.error(logInfo);
-        res.send({ message: 'Something went wrong', error: true });
-    }
-});
-app.post('/google/create_file', async (req, res) => {
-    try {
-        const { name, contents } = req?.body;
-        if (!name || !contents || typeof name !== 'string' || typeof contents !== 'string')
-            res.send('Bad body values');
-        const create = await google
-            .drive({
-                version: 'v3',
-                auth: googleAuth,
-            })
-            .files.create({
-                requestBody: {
-                    name,
-                },
-                media: {
-                    body: contents,
-                    mimeType: 'text/plain',
-                },
-            });
-        res.send({ content: create, error: false });
-    } catch (err) {
-        const logInfo = `${
-            req.user?.user_id || 'user_id'
-        }:google_create_file:${getNeatDate()} \n Error: ${err}`;
-        logger.error(logInfo);
-        res.send({ message: 'Something went wrong', error: true });
-    }
-});
-// endregion
-// endregion
-// endregion
+//     const { user_id, date_joined } = req.user;
+//     try {
+//         const listResponse = aws.s3.getObject({
+//             Bucket: 'axilier-maps',
+//             Key: `${user_id}-${date_joined}`,
+//         });
+//         res.send({ content: listResponse, error: false });
+//     } catch (err) {
+//         const logInfo = `${
+//             req.user?.user_id || 'user_id'
+//         }:aws_list_files:${getNeatDate()} \n Error: ${err}`;
+//         logger.error(logInfo);
+//         res.send({ message: 'Something went wrong', error: true });
+//     }
+// });
+// app.post('/aws/upload_file', (req, res) => {
+//     if (!req.user) return res.send(401);
+//     const { user_id, date_joined } = req.user;
+//     if (
+//         !req.body.name ||
+//         !req.body.file ||
+//         typeof req.body.name !== 'string' ||
+//         typeof req.body.file !== 'string'
+//     )
+//         return res.send('Bad Values');
+//     const response = aws.uploadFile(`${user_id}-${date_joined}/${req.body.name}`, req.body.file);
+//     return res.send({ message: response, error: response === 'Upload failed' });
+// });
+// app.post('/aws/update_file', async (req, res) => {
+//     if (!req.user) return res.send(401);
+//     const { user_id, date_joined } = req.user;
+//     if (
+//         !req.body.name ||
+//         !req.body.file ||
+//         typeof req.body.name !== 'string' ||
+//         typeof req.body.file !== 'string'
+//     )
+//         return res.send('Bad Values');
+//     const updateResponse = await aws.updateFile(
+//         `${user_id}-${date_joined}/${req.body.name}`,
+//         req.body.file,
+//     );
+//     return res.send(updateResponse === true ? 200 : { message: updateResponse, error: true });
+// });
+// app.get('/aws/delete_file', async (req, res) => {
+//     if (!req.user) return res.send(401);
+//     const { user_id, date_joined } = req.user;
+//     if (!req.body.name || typeof req.body.name !== 'string') return res.send('Bad Values');
+//     const deleteResponse = await aws.deleteFile(`${user_id}-${date_joined}/${req.body.name}`);
+//     return res.send(deleteResponse === true ? 200 : { message: deleteResponse, error: true });
+// });
+// // endregion
+// // region ROUTES -- GOOGLE
+// app.get('/google/list_files', async (req, res) => {
+//     try {
+//         const files = await google
+//             .drive({
+//                 version: 'v3',
+//                 auth: googleAuth,
+//             })
+//             .files.list({
+//                 pageSize: 10,
+//                 fields:
+//                     'nextPageToken, files(id, name, trashed, createdTime, modifiedTime, owners)',
+//             });
+//         res.send({ content: files, error: false });
+//     } catch (err) {
+//         const logInfo = `${
+//             req.user?.user_id || 'user_id'
+//         }:google_list_files:${getNeatDate()} \n Error: ${err}`;
+//         logger.error(logInfo);
+//         res.send({ message: 'Something went wrong', error: true });
+//     }
+// });
+// app.get('/google/get_user_profile_pic', async (req, res) => {
+//     try {
+//         const user = await google
+//             .people({
+//                 version: 'v1',
+//                 auth: googleAuth,
+//             })
+//             .people.get({ resourceName: 'people/me', personFields: 'photos' });
+//         res.send({ content: user, error: false });
+//     } catch (err) {
+//         const logInfo = `${
+//             req.user?.user_id || 'user_id'
+//         }:google_user_profile_pic:${getNeatDate()} \n Error: ${err}`;
+//         logger.error(logInfo);
+//         res.send({ message: 'Something went wrong', error: true });
+//     }
+// });
+// app.post('/google/create_file', async (req, res) => {
+//     try {
+//         const { name, contents } = req?.body;
+//         if (!name || !contents || typeof name !== 'string' || typeof contents !== 'string')
+//             res.send('Bad body values');
+//         const create = await google
+//             .drive({
+//                 version: 'v3',
+//                 auth: googleAuth,
+//             })
+//             .files.create({
+//                 requestBody: {
+//                     name,
+//                 },
+//                 media: {
+//                     body: contents,
+//                     mimeType: 'text/plain',
+//                 },
+//             });
+//         res.send({ content: create, error: false });
+//     } catch (err) {
+//         const logInfo = `${
+//             req.user?.user_id || 'user_id'
+//         }:google_create_file:${getNeatDate()} \n Error: ${err}`;
+//         logger.error(logInfo);
+//         res.send({ message: 'Something went wrong', error: true });
+//     }
+// });
+// // endregion
+// // endregion
+// // endregion
 
 app.listen(4000, () => {
-    logger.info('Server Started');
     // eslint-disable-next-line no-console
     console.log('Server Started');
 });
