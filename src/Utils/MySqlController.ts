@@ -3,7 +3,7 @@
 import mysql, { Connection } from 'promise-mysql';
 import * as Bluebird from 'bluebird';
 import { Logger } from 'winston';
-import { Google, Local, UserResponse } from './Types';
+import { Google, Local, UserResponse } from '../Types';
 import { getNeatDate } from './Utils';
 
 export default class MySqlController {

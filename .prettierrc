@@ -4,7 +4,7 @@
   "useTabs": false,
   "arrowParens": "avoid",
   "bracketSpacing": true,
-  "insertPragma": true,
+  "insertPragma": false,
   "requirePragma": false,
   "trailingComma": "all",
   "semi": true,

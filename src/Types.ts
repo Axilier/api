@@ -1,4 +1,7 @@
 /** @format */
+import { Logger } from 'winston';
+import { Pool } from 'promise-mysql';
+import * as Bluebird from 'bluebird';
 
 export type UserResponse = Express.User & {
     email: string;
@@ -38,6 +41,11 @@ declare global {
             local_acc_id: number | null;
             google_acc_id: number | null;
             date_joined: string;
+        }
+        export interface Request {
+            clientUrl: string;
+            logger: Logger;
+            pool: Bluebird<Pool>;
         }
     }
 }
