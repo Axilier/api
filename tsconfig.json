@@ -19,13 +19,14 @@
     "noImplicitThis": true,
     "strictNullChecks": true,
     "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
-    "node_modules",
+    "node_modules/**/*",
     "dist"
   ]
 }
