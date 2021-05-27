@@ -1,7 +1,6 @@
 /** @format */
 
 import express from 'express';
-import passport from 'passport';
 import * as local from './local';
 import * as google from './google';
 import register from './register';
@@ -32,7 +31,7 @@ user.post('/local', register);
  * @apiSuccess {Object} body The User object
  * @apiSampleRequest off
  */
-user.post('/local/login', passport.authenticate('local'), local.login);
+user.post('/local/login', local.login);
 
 /**
  * @api {get} /user/google Access via Google
@@ -57,6 +56,16 @@ user.get('/google', google.access);
 user.get('/google/callback', google.callback);
 
 /**
+ * @api {get} /user/google/profile_pic Gets an authorized users profile picture
+ * @apiName GoogleProfilePicture
+ * @apiGroup User
+ *
+ * @apiSuccess {Object} content Google's defined profile picture object
+ * @apiSampleRequest off
+ */
+user.get('/google/profile_pic', google.profilePic);
+
+/**
  * @api {get} /user/me Logged in user
  * @apiName GetUserMe
  * @apiGroup User
@@ -65,7 +74,9 @@ user.get('/google/callback', google.callback);
  * @apiSampleRequest off
  */
 user.get('/me', (req, res) => {
-    res.send(req.user);
+    const tempUser = { ...req.user };
+    delete tempUser.googleAuth;
+    res.send(tempUser);
 });
 
 /**
@@ -96,9 +107,10 @@ user.get('/me/google', google.get);
  * @apiSuccess {String} body User logged out
  * @apiSampleRequest off
  */
-user.delete('/me/logout', (req, res) => {
+user.delete('/logout', (req, res) => {
+    req.logger.info(`User ${req.user?.user_id} is logging out`);
     req.logOut();
-    res.sendStatus(200).send('User logged out');
+    res.status(200).send('User logged out');
 });
 
 export default user;

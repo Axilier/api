@@ -15,7 +15,11 @@ module.exports = {
     plugins: ['@typescript-eslint', 'prettier'],
     rules: {
         quotes: [2, 'single', { avoidEscape: true }],
-        indent: ['error', 4, { SwitchCase: 1 }],
+        indent: [
+            'error',
+            4,
+            { SwitchCase: 1, ignoredNodes: ['ConditionalExpression', 'TemplateLiteral > *'] },
+        ],
         'import/extensions': 'off',
         'no-use-before-define': 'off',
         '@typescript-eslint/no-use-before-define': ['error'],

@@ -10,45 +10,51 @@ CREATE OR REPLACE TABLE email
     email    VARCHAR(254) NOT NULL
 );
 
+CREATE OR REPLACE TABLE user
+(
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    is_admin  BOOLEAN DEFAULT 0,
+    date_joined TIMESTAMP
+);
+
 CREATE OR REPLACE TABLE google
 (
     google_id         INT AUTO_INCREMENT PRIMARY KEY,
+    storage_connection_id INT,
+    entry_connection_id INT,
     email_id          INT,
     google_account_id BINARY(255),
     refresh_token     TEXT(512),
+    CONSTRAINT fk_google_storage_connection_id
+        FOREIGN KEY (storage_connection_id)
+            REFERENCES user (user_id)
+            ON DELETE CASCADE
+            ON UPDATE RESTRICT,
+    CONSTRAINT fk_google_entry_connection_id
+        FOREIGN KEY (entry_connection_id)
+            REFERENCES user (user_id)
+            ON DELETE CASCADE
+            ON UPDATE RESTRICT,
     CONSTRAINT fk_google_acc_id
         FOREIGN KEY (email_id)
             REFERENCES email (email_id)
-            ON DELETE CASCADE
             ON UPDATE RESTRICT
 );
 
 CREATE OR REPLACE TABLE local
 (
     local_id INT AUTO_INCREMENT PRIMARY KEY,
+    entry_connection_id INT NOT NULL,
     email_id INT NOT NULL,
     password BINARY(60) NOT NULL,
+    CONSTRAINT fk_local_entry_connection_id
+        FOREIGN KEY (entry_connection_id)
+            REFERENCES user (user_id)
+            ON DELETE CASCADE
+            ON UPDATE RESTRICT,
     CONSTRAINT fk_local_acc_id
         FOREIGN KEY (email_id)
             REFERENCES email (email_id)
-            ON DELETE CASCADE
-            ON UPDATE RESTRICT
-);
-
-CREATE OR REPLACE TABLE user
-(
-    user_id       INT AUTO_INCREMENT PRIMARY KEY,
-    local_acc_id  INT,
-    google_acc_id INT,
-    date_joined   TIMESTAMP DEFAULT CURRENT_DATE,
-    CONSTRAINT fk_user
-        FOREIGN KEY (local_acc_id)
-            REFERENCES local (local_id)
-            ON DELETE CASCADE
-            ON UPDATE RESTRICT,
-        FOREIGN KEY (google_acc_id)
-            REFERENCES google (google_id)
-            ON DELETE CASCADE
             ON UPDATE RESTRICT
 );
 
@@ -62,7 +68,6 @@ CREATE OR REPLACE TABLE issue
 (
     issue_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
-    email_id INT,
     type_id INT NOT NULL,
     title VARCHAR(64) NOT NULL,
     message VARCHAR(255) NOT NULL,
@@ -71,13 +76,8 @@ CREATE OR REPLACE TABLE issue
             REFERENCES user (user_id)
             ON DELETE CASCADE
             ON UPDATE RESTRICT,
-        FOREIGN KEY  (email_id)
-            REFERENCES email (email_id)
-            ON DELETE CASCADE
-            ON UPDATE RESTRICT,
         FOREIGN KEY (type_id)
             REFERENCES issue_type (type_id)
             ON DELETE CASCADE
             ON UPDATE RESTRICT
 );
-

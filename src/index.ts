@@ -2,23 +2,26 @@
 
 import dotenv from 'dotenv';
 import winston from 'winston';
-import express, { Response } from 'express';
+import express, { NextFunction, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import session from 'express-session';
 import passport from 'passport';
 import WinstonCloudwatch from 'winston-cloudwatch';
 import mysql from 'promise-mysql';
+import { VerifyCallback } from 'passport-google-oauth20';
+import { S3 } from '@aws-sdk/client-s3';
 import ApiError from './Utils/ApiError';
 import { handleError } from './Utils';
 import Routes from './Routes';
 import { ConfiguredGoogleStrategy, ConfiguredLocalStrategy } from './Passport';
+import deserialize from './Passport/deserialize';
 
 const environment = process.env.NODE_ENV || 'development';
 dotenv.config();
 
 const consoleTransport = new winston.transports.Console();
-const cloudwatchTransport = new WinstonCloudwatch({
+const cloudwatchErrorTransport = new WinstonCloudwatch({
     logGroupName: 'Axilier',
     logStreamName: 'Error-logs',
     awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -26,9 +29,17 @@ const cloudwatchTransport = new WinstonCloudwatch({
     awsRegion: 'eu-west-2',
     level: 'error',
 });
+const cloudwatchInfoTransport = new WinstonCloudwatch({
+    logGroupName: 'Axilier',
+    logStreamName: 'Info-logs',
+    awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    awsSecretKey: process.env.AWS_SECRET_ACCESS_KEY,
+    awsRegion: 'eu-west-2',
+    level: 'info',
+});
 
 const logger = winston.createLogger({
-    transports: [consoleTransport, cloudwatchTransport],
+    transports: [consoleTransport, cloudwatchErrorTransport, cloudwatchInfoTransport],
 });
 if (environment !== 'development') {
     logger.remove(consoleTransport);
@@ -46,6 +57,13 @@ app.use((req: Express.Request, res, next) => {
         password: process.env.DB_PASSWORD,
         database: process.env.DB,
         connectionLimit: 10,
+    });
+    req.aws = new S3({
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        },
+        region: 'eu-west-2',
     });
     next();
 });
@@ -71,10 +89,11 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
-app.use('/', Routes);
-app.use((err: ApiError, req: Express.Request, res: Response) => handleError(req.logger, err, res));
-
+passport.serializeUser((user: Express.User, done) => done(null, user.user_id));
+passport.deserializeUser((req: express.Request, id: number, done: VerifyCallback) => deserialize(req, id, done));
 passport.use(ConfiguredGoogleStrategy);
 passport.use(ConfiguredLocalStrategy);
+app.use('/', Routes);
+app.use((err: ApiError, req: Express.Request, res: Response, next: NextFunction) => handleError(req, err, res, next));
 
 app.listen(4000, () => logger.info('Server Started'));
