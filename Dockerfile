@@ -15,7 +15,7 @@ RUN apk --no-cache -U upgrade
 RUN mkdir -p /home/node/app/dist && chown -R node:node /home/node/app
 WORKDIR /home/node/app
 RUN yarn global add pm2
-COPY package.json process.yml .env ./
+COPY package.json process.yml ./
 USER node
 RUN yarn install --production
 COPY --chown=node:node --from=builder /app/dist ./dist
