@@ -6,7 +6,7 @@ import { Google, Local, UserResponse } from '../Types';
 export const getLocalAccount = (pool: Bluebird<Pool>, selector: string | number): Promise<Array<Local>> => {
     const whereCondition = typeof selector === 'string' ? 'email.email = ?' : 'user.user_id = ?';
     return pool.then(
-        (connection): Bluebird<Array<Local & UserResponse>> =>
+        (connection: Pool): Bluebird<Array<Local & UserResponse>> =>
             connection.query(
                 `
                         SELECT local.*
@@ -28,7 +28,7 @@ export const getLocalAccount = (pool: Bluebird<Pool>, selector: string | number)
 export const getGoogleAccount = (pool: Bluebird<Pool>, selector: string | number): Promise<Array<Google>> => {
     const whereCondition = typeof selector === 'string' ? 'email.email = ?' : 'user.user_id = ?';
     return pool.then(
-        (connection): Bluebird<Array<Google & UserResponse>> =>
+        (connection: Pool): Bluebird<Array<Google & UserResponse>> =>
             connection.query(
                 `
                         SELECT google.*
@@ -49,7 +49,7 @@ export const getGoogleAccount = (pool: Bluebird<Pool>, selector: string | number
 // region getEmail
 export const getEmail = (pool: Bluebird<Pool>, email: string): Promise<Array<{ emailId: number }>> =>
     pool.then(
-        (connection): Bluebird<Array<{ emailId: number }>> =>
+        (connection: Pool): Bluebird<Array<{ emailId: number }>> =>
             connection.query(
                 `
                     SELECT email.email_id
@@ -63,7 +63,7 @@ export const getEmail = (pool: Bluebird<Pool>, email: string): Promise<Array<{ e
 // region getUser
 export const getUserById = (pool: Bluebird<Pool>, id: number): Promise<Array<Express.User>> =>
     pool.then(
-        (connection): Bluebird<Array<Express.User>> =>
+        (connection: Pool): Bluebird<Array<Express.User>> =>
             connection.query(
                 `
                     SELECT user.*
@@ -80,7 +80,7 @@ export const insert = (
     connection: Connection | PoolConnection,
     table: string,
     values: Record<string, string | number>,
-): Promise<{ insertId: number }> =>
+): Bluebird<{ insertId: number }> =>
     connection.query(
         `
             INSERT INTO ${table}
