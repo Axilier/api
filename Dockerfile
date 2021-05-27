@@ -9,6 +9,7 @@ RUN yarn install
 COPY . .
 RUN yarn build
 
+RUN apk add --no-cache bash
 RUN --mount=type=secret,id=AWS_ACCESS_KEY_ID cat /run/secrets/AWS_ACCESS_KEY_ID
 
 FROM node AS final
