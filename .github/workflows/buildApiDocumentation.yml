@@ -1,0 +1,32 @@
+name: Api Documentation build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master repo
+        uses: actions/checkout@v2
+        with:
+          ref: 'master'
+      - uses: webfactory/ssh-agent@v0.4.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_P_KEY }}
+      - name: setup node
+        uses: actions/setup-node@v2-beta
+        with:
+          node-version: '12'
+      - name: build documentation
+        run: yarn doc
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          BRANCH: docs
+          FOLDER: apidoc
+          CLEAN: true
+          CLEAN_EXCLUDE: '["CNAME"]'
