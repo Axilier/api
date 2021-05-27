@@ -21,7 +21,9 @@ jobs:
         with:
           node-version: '12'
       - name: build documentation
-        run: yarn doc
+        run: |
+          yarn install
+          yarn doc-build
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@3.7.1
         with:

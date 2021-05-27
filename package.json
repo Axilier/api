@@ -6,7 +6,8 @@
     "start": "nodemon --exec ts-node -r dotenv/config src/index.ts",
     "build": "tsc -p .",
     "test": "jest --setupFiles dotenv/config",
-    "doc": "nodemon --exec \"apidoc -i src/Routes -o apidoc/\" --ignore apidoc/"
+    "doc": "nodemon --exec \"apidoc -i src/Routes -o apidoc/\" --ignore apidoc/",
+    "doc-build": "apidoc -i src/Routes -o apidoc"
   },
   "license": "MIT",
   "dependencies": {
