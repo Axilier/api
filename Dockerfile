@@ -6,11 +6,10 @@ WORKDIR /app
 COPY package.json ./
 RUN yarn install
 
-RUN --mount=type=secret,id=AWS_ACCESS_KEY_ID \
-    cat /run/secrets/AWS_ACCESS_KEY_ID
-
 COPY . .
 RUN yarn build
+
+RUN --mount=type=secret,id=AWS_ACCESS_KEY_ID cat /run/secrets/AWS_ACCESS_KEY_ID
 
 FROM node AS final
 ENV NODE_ENV production
