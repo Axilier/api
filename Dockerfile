@@ -17,6 +17,7 @@ WORKDIR /home/node/app
 RUN yarn global add pm2
 COPY package.json process.yml ./
 USER node
+RUN echo $GOOGLE_CLIENT_ID
 RUN yarn install --production
 COPY --chown=node:node --from=builder /app/dist ./dist
 EXPOSE 4000
