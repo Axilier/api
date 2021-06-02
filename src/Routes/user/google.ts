@@ -12,7 +12,13 @@ export const get = async (req: Request, res: Response): Promise<void | Response>
     const googleUser = await getGoogleAccount(req.pool, req.user.user_id);
     if (googleUser.length === 0) return res.status(422).send('No associated google account');
     if (googleUser.length !== 1) return res.status(500).send('More than 1 result returned');
-    return res.send(googleUser[0]);
+    return res.send({
+        google_id: googleUser[0].google_id,
+        storage_connection_id: googleUser[0].storage_connection_id,
+        entry_connection_id: googleUser[0].entry_connection_id,
+        email_id: googleUser[0].email_id,
+        google_account_id: googleUser[0].google_account_id,
+    });
 };
 
 export const access = (req: Request, res: Response, next: NextFunction): void | Response => {

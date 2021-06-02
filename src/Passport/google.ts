@@ -61,9 +61,12 @@ export default new GoogleStrategy(
                 return done(undefined, { ...req.user, googleAuth });
             }
             return undefined;
-        } catch (error) {
+        } catch (err) {
             connection.rollback();
-            return done(error, undefined);
+            if (!err.code) {
+                err.code = 500;
+            }
+            return done(err);
         }
     },
 );

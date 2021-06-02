@@ -31,7 +31,10 @@ export default async (req: Express.Request, id: number, done: VerifyCallback): P
             email: email[0].email,
             googleAuth: googleInit(existingGoogleAccount[0].refresh_token),
         });
-    } catch (e) {
-        return done(e);
+    } catch (err) {
+        if (!err.code) {
+            err.code = 500;
+        }
+        return done(err);
     }
 };

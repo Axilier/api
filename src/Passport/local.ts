@@ -22,7 +22,9 @@ export default new LocalStrategy(
             }
             return done(undefined, undefined);
         } catch (err) {
-            err.code = 500;
+            if (!err.code) {
+                err.code = 500;
+            }
             return done(err);
         }
     },

@@ -21,8 +21,8 @@ export const handleError = (request: Express.Request, error: ApiError | Error, r
 };
 
 export const recordValidationPassport = (response: Array<unknown>, done: VerifyCallback, recordName: string): void => {
-    if (response.length === 0) return done(new ApiError(`No ${recordName} found`, 404));
-    if (response.length > 1) return done(new ApiError(`Multiple ${recordName}s of same account found`, 500));
+    if (response.length === 0) throw new ApiError(`No ${recordName} found`, 404);
+    if (response.length > 1) throw new ApiError(`Multiple ${recordName}s of same account found`, 500);
     return undefined;
 };
 

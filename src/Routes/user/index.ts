@@ -74,9 +74,13 @@ user.get('/google/profile_pic', google.profilePic);
  * @apiSampleRequest off
  */
 user.get('/me', (req, res) => {
-    const tempUser = { ...req.user };
-    delete tempUser.googleAuth;
-    res.send(tempUser);
+    if (!req.user) return res.status(401).send('User not logged in');
+    return res.status(200).send({
+        user_id: req.user.user_id,
+        is_admin: req.user.is_admin,
+        email: req.user.email,
+        date_joined: req.user.date_joined,
+    });
 });
 
 /**
