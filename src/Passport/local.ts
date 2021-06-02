@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { getGoogleAccount, getLocalAccount, getUserById } from '../Utils/mysql';
 import { googleInit, recordValidationPassport } from '../Utils';
+import ApiError from '../Utils/ApiError';
 
 export default new LocalStrategy(
     { usernameField: 'email', passReqToCallback: true },
@@ -20,7 +21,7 @@ export default new LocalStrategy(
                     googleAuth: googleUser.length === 1 ? googleInit(googleUser[0].refresh_token) : null,
                 });
             }
-            return done(undefined, undefined);
+            return done(new ApiError('Incorrect password', 401));
         } catch (err) {
             if (!err.code) {
                 err.code = 500;
