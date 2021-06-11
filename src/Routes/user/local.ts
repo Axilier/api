@@ -4,8 +4,8 @@ import ApiError from '../../Utils/ApiError';
 import { getLocalAccount } from '../../Utils/mysql';
 import { handleError } from '../../Utils';
 
-export default async (req: Request, res: Response): Promise<void | Response> => {
-    if (!req.user) throw new ApiError('User not logged in', 401);
+export default async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
+    if (!req.user) return handleError(req, new ApiError('User not logged in', 401), res, next);
     const localUser = await getLocalAccount(req.pool, req.user.user_id);
     if (localUser.length !== 1) return res.status(500).send('More than 1 result returned');
     return res.send({
